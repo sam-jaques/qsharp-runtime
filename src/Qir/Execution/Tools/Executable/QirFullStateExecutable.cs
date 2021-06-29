@@ -34,7 +34,7 @@ namespace Microsoft.Quantum.Qir.Tools.Executable
                   new QirFullStateDriverGenerator(),
                   logger)
         {
-            var thisModulePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location); //ToDo
+            var thisModulePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 
             Console.WriteLine($"The root path for library and header directories is: {thisModulePath}");
 
