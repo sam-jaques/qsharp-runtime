@@ -29,13 +29,7 @@ typedef void* QUANTUM_SIMULATOR;
 
 namespace
 {
-#ifdef _WIN32
 const char* FULLSTATESIMULATORLIB = "Microsoft.Quantum.Simulator.Runtime.dll";
-#elif __APPLE__
-const char* FULLSTATESIMULATORLIB = "libMicrosoft.Quantum.Simulator.Runtime.dylib";
-#else
-const char* FULLSTATESIMULATORLIB = "libMicrosoft.Quantum.Simulator.Runtime.so";
-#endif
 
 QUANTUM_SIMULATOR LoadQuantumSimulator()
 {
