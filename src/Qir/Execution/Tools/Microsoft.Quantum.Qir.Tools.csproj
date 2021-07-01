@@ -67,7 +67,7 @@
 
   <ItemGroup>
     <None Include="$(QSimDll)">
-      <Link>Libraries\%(FileName)%(Extension)</Link>
+      <Link>Libraries\win-x64\%(FileName)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Visible>false</Visible>
     </None>
