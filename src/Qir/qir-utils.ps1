@@ -35,7 +35,7 @@ function Build-CMakeProject {
     $oldCC = $env:CC
     $oldCXX = $env:CXX
     $oldRC = $env:RC
-    $oldCCFLAGS  = $env:CCFLAGS
+    $oldCFLAGS   = $env:CFLAGS
     $oldCXXFLAGS = $env:CXXFLAGS
 
     $clangTidy = ""
@@ -93,9 +93,44 @@ function Build-CMakeProject {
     # Disable until the Catch header "src\Qir\Common\externals\catch2\catch.hpp" is updated to a version newer than v2.12.1 (from https://github.com/catchorg/Catch2).
     $warningFlags += " -Wno-extra-semi-stmt"    # https://clang.llvm.org/docs/DiagnosticsReference.html#wextra-semi-stmt
 
-
     $env:CFLAGS   += $warningFlags
     $env:CXXFLAGS += $warningFlags
+
+
+    # Sanitizers (https://clang.llvm.org/docs/UsersManual.html#controlling-code-generation):
+
+    $sanitizeFlags = "" 
+    if (-not ($IsWindows))
+    {
+        # Undefined Behavior Sanitizer (https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html)
+        # Win:
+        #   FAILED: lib/QIR/Microsoft.Quantum.Qir.Runtime.dll lib/QIR/Microsoft.Quantum.Qir.Runtime.lib
+        #   lld-link: error: /failifmismatch: mismatch detected for 'RuntimeLibrary':
+        #   >>> lib/QIR/CMakeFiles/qir-rt-support-obj.dir/QubitManager.cpp.obj has value MD_DynamicRelease
+        #   >>> clang_rt.ubsan_standalone_cxx-x86_64.lib(ubsan_type_hash_win.cc.obj) has value MT_StaticRelease
+        #   clang++: error: linker command failed with exit code 1 (use -v to see invocation)
+        $sanitizeFlags += " -fsanitize=undefined -fsanitize=float-divide-by-zero -fsanitize=unsigned-integer-overflow -fsanitize=implicit-conversion -fsanitize=local-bounds -fsanitize=nullability"
+        $sanitizeFlags += " -fsanitize-blacklist="      # https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html#suppressing-errors-in-recompiled-code-ignorelist
+        $sanitizeFlags += (Join-Path $Path .. UBSan.ignore)
+        # TODO: 
+        #     For Win consider extra build configuration linking all libs staticly, enable `-fsanitize=undefined`, run the staticly linked tests.
+
+        if (-not ($IsMacOS))
+        {
+            # Safe Stack instrumentation (https://clang.llvm.org/docs/SafeStack.html):
+            #   No support for Win, Mac.
+            #       clang: error: unsupported option '-fsanitize=safe-stack' for target 'x86_64-apple-darwin19.6.0'
+            #   Linking a DSO with SafeStack is not currently supported. But compilation, linking, and test runs all succeed.
+            $sanitizeFlags += " -fsanitize=safe-stack"
+        }
+
+        $sanitizeFlags += " -fno-omit-frame-pointer"            # https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html
+        $sanitizeFlags += " -fno-optimize-sibling-calls"        # https://clang.llvm.org/docs/AddressSanitizer.html
+    }
+
+    $env:CFLAGS   += $sanitizeFlags
+    $env:CXXFLAGS += $sanitizeFlags
+
 
     if (($IsMacOS) -or ((Test-Path Env:AGENT_OS) -and ($Env:AGENT_OS.StartsWith("Darwin"))))
     {
@@ -145,7 +180,7 @@ function Build-CMakeProject {
         $buildType = "RelWithDebInfo"
     }
 
-    cmake -G Ninja $clangTidy -D CMAKE_BUILD_TYPE="$buildType" ../.. | Write-Host
+    cmake -G Ninja $clangTidy -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -D CMAKE_BUILD_TYPE="$buildType" ../.. | Write-Host
     if ($LastExitCode -ne 0) {
         Write-Host "##vso[task.logissue type=error;]Failed to generate $Name."
         $all_ok = $false
@@ -160,7 +195,7 @@ function Build-CMakeProject {
     Pop-Location
 
     $env:CXXFLAGS = $oldCXXFLAGS
-    $env:CCFLAGS  = $oldCCFLAGS
+    $env:CFLAGS   = $oldCFLAGS
 
     $env:CC = $oldCC
     $env:CXX = $oldCXX
